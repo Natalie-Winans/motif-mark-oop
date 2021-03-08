@@ -122,7 +122,8 @@ class GeneGroup:
         header: Header object
         gene: Gene object
         exon: Exon object
-        motif_spans: dictionary containing ...
+        found_motifs: dictionary with keys = motifs as keys and 
+        values = start and end coordinates as lists of tuples 
     """
     def __init__(self, header, gene, exon, found_motifs):
         self.header = header
