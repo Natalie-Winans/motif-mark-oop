@@ -5,6 +5,143 @@ import os
 import re
 import cairo
 
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# CLASSES
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+class FastaHeader:
+    """
+    A class to represent a FASTA file header line.
+
+    Attributes:
+        text (str): text of a header line beginning with '>'
+        gene_number (int): the gene index in the FASTA file
+    """
+    def __init__(self, text, gene_number):
+        self.text = text
+        self.gene_number = gene_number
+
+    def write(self, ctx):
+        """Write FASTA header above each gene object."""
+        y = GENE_GROUP_HEIGHT * self.gene_number + GENE_Y_OFFSET
+        ctx.move_to(LEFT_MARGIN, y - 35)
+        ctx.set_source_rgb(0, 0, 0)
+        ctx.set_font_size(16)
+        ctx.show_text(self.text)
+
+
+class Gene:
+    """A class to represent one gene/entry in a FASTA file.
+    
+    Attributes:
+        length (int): length in base pairs of the gene sequence
+        gene_number (int): the gene index in the FASTA file
+    """
+    line_width = 5
+    def __init__(self, length, gene_number):
+        self.length  = length
+        self.gene_number = gene_number
+
+    def draw(self, ctx):
+        """Draw line representing gene to scale."""
+        y = GENE_GROUP_HEIGHT * self.gene_number + GENE_Y_OFFSET
+        ctx.set_source_rgb(0, 0, 0)
+        ctx.set_line_width(self.line_width)
+        ctx.move_to(LEFT_MARGIN, y)
+        ctx.line_to(LEFT_MARGIN + self.length, y)
+        ctx.stroke()
+
+        # label 5' and 3' ends
+        ctx.move_to(35, y + 5)
+        ctx.set_source_rgb(0, 0, 0)
+        ctx.set_font_size(12)
+        ctx.show_text("5'")
+        ctx.move_to(55 + self.length, y + 5)
+        ctx.set_source_rgb(0, 0, 0)
+        ctx.set_font_size(12)
+        ctx.show_text("3'")
+
+
+
+class Exon:
+    """A class to represent an exon within a gene/entry.
+
+    Attributes:
+        start (int): value representing the starting position
+        end (int): value representing the ending position
+        gene_number (int): the gene index in the FASTA file
+    """
+    line_width = 35
+    def __init__(self, start, end, gene_number):
+        self.start = start
+        self.end = end
+        self.gene_number = gene_number
+
+    def draw(self, ctx):
+        """Draw line representing the exon to scale."""
+        y = GENE_GROUP_HEIGHT * self.gene_number + GENE_Y_OFFSET
+        ctx.set_source_rgb(0, 0, 0)
+        ctx.set_line_width(self.line_width)
+        ctx.move_to(LEFT_MARGIN + self.start, y)
+        ctx.line_to(LEFT_MARGIN + self.end, y)
+        ctx.stroke()
+        
+
+class Motif:
+    """A class to represent a motif to draw within a gene/sequence.
+    
+    Attributes:
+        spans (list of tuples): the start and end positions of each found motif
+        gene_number (int): the gene index in the FASTA file
+        motif_num (int): the motif index in the dictionary of found motifs
+    """
+    line_width = 35
+    def __init__(self, spans, gene_number, motif_num):
+        self.spans = spans
+        self.gene_number = gene_number
+        self.motif_num = motif_num
+    
+    def draw(self, ctx):
+        """Draw all instances of motif found in gene to scale.""" 
+        y = GENE_GROUP_HEIGHT * self.gene_number + GENE_Y_OFFSET
+        ctx.set_line_width(self.line_width)
+        ctx.set_source_rgba(*pal[self.motif_num])
+
+        for span in self.spans:
+            ctx.move_to(LEFT_MARGIN + span[0], y)
+            ctx.set_line_width(35)
+            ctx.line_to(LEFT_MARGIN + span[1], y)
+            ctx.stroke()
+
+
+class GeneGroup:
+    """A class to represent a gene group.
+    
+    Attributes:
+        header: Header object
+        gene: Gene object
+        exon: Exon object
+        motif_spans: dictionary containing ...
+    """
+    def __init__(self, header, gene, exon, found_motifs):
+        self.header = header
+        self.gene = gene
+        self.exon = exon
+        self.found_motifs = found_motifs
+
+    def draw_gene_group(self):
+        """Draw gene group including introns, exon, motifs, and header line."""
+        self.header.write(ctx)
+        self.gene.draw(ctx)
+        self.exon.draw(ctx)
+        
+        for i, motif in enumerate(self.found_motifs):
+            spans = found_motifs[motif]
+            motif = Motif(spans, gene_num, i)
+            motif.draw(ctx)
+
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # FUNCTIONS
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -118,164 +255,42 @@ def gene_dictionary(fasta_file):
 
     return(gene_dict)
 
-def motif_spans(motif_dict, gene_dict):
-    """
-    Take motif file and list of gene/pre-mRNA sequences,
-    return dictionary of dictonaries of lists of tuples.
 
-    Outer dictionary:
-        keys = gene/pre-mRNA sequence indexes
-        values = inner dictionaries:
-            keys = motifs
-            values = lists of tuples representing span of 
-                     motif in the sequence
-    """
-    all_motif_spans = {}
-    for header, seq in gene_dict.items():
-        seq_motif_spans = {}
-        for j, motif in enumerate(motif_dict):
-            motif_match = re.finditer(motif_dict[motif], seq)
-            seq_motif_spans[motif] = [m.span() for m in motif_match]
-        #print(seq_motif_spans)
+def make_legend(gene_dict, motif_dict):
+    leg_y = 115
+    max_seq_length = len(max(gene_dict.values(), key = len))
+    leg_left_margin = max_seq_length + LEFT_MARGIN
 
-        all_motif_spans[header] = seq_motif_spans
+    ctx.move_to(leg_left_margin, leg_y - 35)
+    ctx.set_source_rgb(0, 0, 0)
+    ctx.set_line_width(5)
+    ctx.line_to(leg_left_margin + 30, leg_y - 35)
+    ctx.stroke()
+    ctx.move_to(leg_left_margin + 40, leg_y - 28)
+    ctx.set_source_rgb(0, 0, 0)
+    ctx.set_font_size(16)
+    ctx.show_text("Intron")
 
-    return all_motif_spans
+    ctx.move_to(leg_left_margin, leg_y)
+    ctx.set_source_rgb(0, 0, 0)
+    ctx.set_line_width(30)
+    ctx.line_to(leg_left_margin + 30, leg_y)
+    ctx.stroke()
+    ctx.move_to(leg_left_margin + 40, leg_y + 7)
+    ctx.set_source_rgb(0, 0, 0)
+    ctx.set_font_size(16)
+    ctx.show_text("Exon")
 
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# CLASSES
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-class FastaHeader:
-    """
-    A class to represent a FASTA file header line.
-
-    Attributes:
-        text (str): text of a header line beginning with '>'
-        gene_number (int): the gene index in the FASTA file
-    """
-    def __init__(self, text, gene_number):
-        self.text = text
-        self.gene_number = gene_number
-
-    def write(self, ctx):
-        """Write FASTA header above each gene object."""
-        y = GENE_GROUP_HEIGHT * self.gene_number + GENE_Y_OFFSET
-        ctx.move_to(LEFT_MARGIN, y - 35)
+    for i, motif in enumerate(motif_dict.keys()):
+        ctx.move_to(leg_left_margin, leg_y + 5 + 30*(i+1) + i*5)
+        ctx.set_source_rgba(*pal[i])
+        ctx.set_line_width(30)
+        ctx.line_to(leg_left_margin + 30, leg_y + 5 + 30*(i+1) + i*5)
+        ctx.stroke()
+        ctx.move_to(leg_left_margin + 40, leg_y + 5 + 30*(i+1.25) + i*5)
         ctx.set_source_rgb(0, 0, 0)
         ctx.set_font_size(16)
-        ctx.show_text(self.text)
-
-
-class Gene:
-    """A class to represent one gene/entry in a FASTA file.
-    
-    Attributes:
-        length (int): length in base pairs of the gene sequence
-        gene_number (int): the gene index in the FASTA file
-    """
-    line_width = 5
-    def __init__(self, length, gene_number):
-        self.length  = length
-        self.gene_number = gene_number
-
-    def draw(self, ctx):
-        """Draw line representing gene to scale."""
-        y = GENE_GROUP_HEIGHT * self.gene_number + GENE_Y_OFFSET
-        ctx.set_source_rgb(0, 0, 0)
-        ctx.set_line_width(self.line_width)
-        ctx.move_to(LEFT_MARGIN, y)
-        ctx.line_to(LEFT_MARGIN + self.length, y)
-        ctx.stroke()
-
-class Exon:
-    """A class to represent an exon within a gene/entry.
-
-    Attributes:
-        start (int): value representing the starting position
-        end (int): value representing the ending position
-        gene_number (int): the gene index in the FASTA file
-    """
-    line_width = 35
-    def __init__(self, start, end, gene_number):
-        self.start = start
-        self.end = end
-        self.gene_number = gene_number
-
-    def draw(self, ctx):
-        """Draw line representing the exon to scale."""
-        y = GENE_GROUP_HEIGHT * self.gene_number + GENE_Y_OFFSET
-        ctx.set_source_rgb(0, 0, 0)
-        ctx.set_line_width(self.line_width)
-        ctx.move_to(LEFT_MARGIN + self.start, y)
-        ctx.line_to(LEFT_MARGIN + self.end, y)
-        ctx.stroke()
-        
-
-class Motif:
-    """A class to represent a motif to draw within a gene/sequence.
-    
-    Attributes:
-        start (int):value representing the starting position
-        end (int): value representing the ending position
-        gene_number (int): the gene index in the FASTA file
-        num_motifs (int): number of motifs in input file
-    """
-    line_width = 35
-    def __init__(self, spans, gene_number, num_motifs):
-        # self.start = start
-        # self.end = end
-        self.spans = spans
-        self.gene_number = gene_number
-        self.pal = palette(num_motifs)
-    
-
-    def draw(self, ctx):
-        """Draw all instances of motif found in gene to scale.""" 
-        y = GENE_GROUP_HEIGHT * self.gene_number + GENE_Y_OFFSET
-        ctx.set_line_width(self.line_width)
-        # ctx.set_source_rgba(*self.pal[j])
-        # ctx.set_source_rgb(0, 0, 0)
-        # ctx.move_to(LEFT_MARGIN + self.start, y)
-        # ctx.line_to(LEFT_MARGIN + self.end, y)
-        # ctx.stroke()
-
-        for span in self.spans:
-            ctx.move_to(LEFT_MARGIN + span[0], y)
-            ctx.set_line_width(35)
-            ctx.line_to(LEFT_MARGIN + span[1], y)
-            ctx.stroke()
-
-
-class GeneGroup:
-    """A class to represent a gene group.
-    
-    Attributes:
-        header: Header object
-        gene: Gene object
-        exon: Exon object
-        motif_spans: dictionary containing ...
-    """
-    def __init__(self, header, gene, exon, found_motifs):
-        self.header = header
-        self.gene = gene
-        self.exon = exon
-        self.found_motifs = found_motifs
-
-    def draw_gene_group(self):
-        """Draw gene group including introns, exon, motifs, and header line."""
-        self.header.write(ctx)
-        self.gene.draw(ctx)
-        self.exon.draw(ctx)
-
-        for i, motif in enumerate(self.found_motifs):
-            spans = found_motifs[motif]
-            motif = Motif(spans, gene_num, num_motifs)
-
-            motif.draw(ctx)
-        
-
+        ctx.show_text(motif)
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -291,19 +306,17 @@ GENE_GROUP_HEIGHT = 150
 GENE_Y_OFFSET = 150
 LEFT_MARGIN = 50
 
-# for figure title
+# for figure title and output file names
 fasta_name = extract_fasta_name(fasta_file)
 
 # read in information from input files
 gene_dict = gene_dictionary(fasta_file)
 motif_dict = convert_motifs(motif_file)
-num_motifs = len(motif_dict)
 
-# motif_spans = motif_spans(motif_dict, gene_dict)
-
+# set palette based on number of motifs
+pal = palette(len(motif_dict))
 
 # set surface dimensions based on number of sequences and max length
-### make this a function too?
 num_genes = len(gene_dict)
 max_length = len(max(gene_dict.values(), key = len))
 width = max_length + 250
@@ -320,7 +333,7 @@ ctx.set_source_rgb(0, 0, 0)
 ctx.set_font_size(24)
 ctx.show_text("FASTA file: %s" % fasta_name)
 
-# draw gene groups
+# draw figure
 gene_num = 0
 for header, seq in gene_dict.items():
     header = FastaHeader(header, gene_num)
@@ -335,17 +348,18 @@ for header, seq in gene_dict.items():
     for motif in motif_dict:
         motif_match = re.finditer(motif_dict[motif], seq)
         found_motifs[motif] = [m.span() for m in motif_match]
-    print(found_motifs)
 
-    group = GeneGroup(header, gene, exon, found_motifs)
-    group.draw_gene_group()
-
-    # draw motifs
+    # draw gene groups
+    GeneGroup(header, gene, exon, found_motifs).draw_gene_group()
     
     gene_num += 1
 
+make_legend(gene_dict, motif_dict)
 
-surface.write_to_png('%s.png' % fasta_name)
+
+# surface.write_to_png('%s.png' % fasta_name)
+
+surface.finish()
 
 
 
