@@ -10,6 +10,7 @@ Call `motif-mark-oop.py` from the command line using the following arguments:
 -f, --fasta     FASTA file containing sequences of interest
 -m, --motifs    Text file containing up to six motifs, one motif per line
 -h, --help      Display help message describing arguments
+```
 
 Example output:
 
