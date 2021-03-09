@@ -2,7 +2,7 @@
 ### A Python script to plot protein-binding motifs on an image of an exon and its 5' and 3' introns
 
 * Handles up to six motifs, may contain degenerate bases (IUPAC symbols).
-* Outputs a single figure in svg and png formats.
+* Outputs a single figure in svg format.
 
 Call `motif-mark-oop.py` from the command line using the following arguments:
 
