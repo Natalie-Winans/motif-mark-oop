@@ -123,7 +123,7 @@ class GeneGroup:
         gene: Gene object
         exon: Exon object
         found_motifs: dictionary with keys = motifs as keys and 
-        values = start and end coordinates as lists of tuples 
+            values = start and end coordinates as lists of tuples 
     """
     def __init__(self, header, gene, exon, found_motifs):
         self.header = header
@@ -167,25 +167,26 @@ def extract_fasta_name(fasta_file):
 
 def convert_motifs(motif_file):
     """Take text file of motifs, convert to regex statements based on IUPAC conventions, 
-    return list of converted motifs ready to be searched with regex."""
+    return dictionary with keys = original motifs and values = regex statements for 
+    searching sequences."""
     base_dict = {
-    'A': '[Aa]',
-    'C': '[Cc]',
-    'G': '[Gg]',
-    'T': '[TtUu]',
-    'U': '[UuTt]',
-    'W': '[AaTtUu]',
-    'S': '[CcGg]',
-    'M': '[AaCc]',
-    'K': '[GgTtUu]',
-    'R': '[AaGg]',
-    'Y': '[CcTtUu]',
-    'B': '[CcGgTtUu]',
-    'D': '[AaGgTtUu]',
-    'H': '[AaCcTtUu]',
-    'V': '[AaCcGg]',
-    'N': '[AaCcGgTtUu]',
-    'Z': '[]'}
+        'A': '[Aa]',
+        'C': '[Cc]',
+        'G': '[Gg]',
+        'T': '[TtUu]',
+        'U': '[UuTt]',
+        'W': '[AaTtUu]',
+        'S': '[CcGg]',
+        'M': '[AaCc]',
+        'K': '[GgTtUu]',
+        'R': '[AaGg]',
+        'Y': '[CcTtUu]',
+        'B': '[CcGgTtUu]',
+        'D': '[AaGgTtUu]',
+        'H': '[AaCcTtUu]',
+        'V': '[AaCcGg]',
+        'N': '[AaCcGgTtUu]',
+        'Z': '[]'}
     motif_dict = {}
     with open(motif_file, 'r') as fh:
         for motif in fh:
@@ -356,9 +357,6 @@ for header, seq in gene_dict.items():
     gene_num += 1
 
 make_legend(gene_dict, motif_dict)
-
-
-# surface.write_to_png('%s.png' % fasta_name)
 
 surface.finish()
 
